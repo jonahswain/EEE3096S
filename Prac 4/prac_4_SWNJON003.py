@@ -62,8 +62,8 @@ class TempSensor(AnalogDevice):
 class LightSensor(AnalogDevice):
     """An LDR based light sensor"""
 
-    low_calibration = 0
-    high_calibration = 1023
+    low_calibration = 230
+    high_calibration = 780
 
     def __init__(self, mcp3008, channel):
         super().__init__(mcp3008, channel)
