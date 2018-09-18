@@ -85,10 +85,10 @@ class Prac4(threading.Thread):
     temp_length = 7
     light_length = 5
 
-    reset_pin = 0
-    frequency_pin = 0
-    stop_pin = 0
-    display_pin = 0
+    reset_pin = 17
+    frequency_pin = 18
+    stop_pin = 27
+    display_pin = 22
 
     def clear_console():
         print("\n"*30)
@@ -177,6 +177,7 @@ class Prac4(threading.Thread):
 
 # MAIN FUNCTION
 def main():
+    GPIO.setmode(GPIO.BCM)
     # Run the prac
     prac = Prac4()
     prac.start()
