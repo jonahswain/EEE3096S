@@ -111,9 +111,9 @@ class Prac4(threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self)
         self.stopped = False
-        self.spi = spidev.SpiDev()
-        self.spi.open(0, 0)
-        self.adc = Adafruit_MCP3008.MCP3008(spi = self.spi)
+        #self.spi = spidev.SpiDev()
+        #self.spi.open(0, 0)
+        self.adc = Adafruit_MCP3008.MCP3008(mosi = 20, miso = 19, clk = 21, cs = 8)
         
     def run(self): # Thread run method
         # Setup
