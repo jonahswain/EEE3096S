@@ -124,7 +124,7 @@ class Prac4(threading.Thread):
         self.timer = Timer()
         self.pot = Potentiometer(self.adc, 0)
         self.temp = TempSensor(self.adc, 1)
-        self.light = LightSensor(self.adc)
+        self.light = LightSensor(self.adc, 2)
 
         self.delay = 0.5
 
