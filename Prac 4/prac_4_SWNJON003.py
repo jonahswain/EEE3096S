@@ -70,6 +70,10 @@ class LightSensor(AnalogDevice):
 
     def get_value(self):
         light_value = ((super().get_value() - LightSensor.low_calibration)/(LightSensor.high_calibration - LightSensor.low_calibration))*100
+        if (light_value > 100):
+            light_value = 100
+        elif (light_value < 0):
+            light_value = 0
         return (str(int(light_value)) + " %")
 
 
@@ -77,7 +81,7 @@ class LightSensor(AnalogDevice):
 class Prac4(threading.Thread):
     """The main practical class"""
 
-    header = "Time      Timer     Pot    Temp  Light"
+    header = "Time      Timer     Pot    Temp  Light "
     row_length = 39
     time_length = 10
     timer_length = 10
@@ -91,7 +95,7 @@ class Prac4(threading.Thread):
     display_pin = 22
 
     def clear_console():
-        print("\n"*30)
+        print("\n"*50)
 
     def generate_row(time_val, timer_val, pot_val, temp_val, light_val):
         return (time_val + " "*(Prac4.time_length - len(time_val)) + timer_val + " "*(Prac4.timer_length - len(timer_val)) + pot_val + " "*(Prac4.pot_length - len(pot_val)) + temp_val + " "*(Prac4.temp_length - len(temp_val)) + light_val + " "*(Prac4.light_length - len(light_val)))
@@ -168,6 +172,8 @@ class Prac4(threading.Thread):
 
     def display_sw(self, channel): # Display button pressed
         if (self.stopped):
+            Prac4.clear_console()
+            Prac4.print_header()
             for r in self.row_buffer:
                 Prac4.print_row(r)
 
