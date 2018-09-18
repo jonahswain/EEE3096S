@@ -190,3 +190,21 @@ def main():
 
 if (__name__ == "__main__"): # Run main if script is being executed as main
     main()
+
+
+# DELETE THIS
+def adc_to_voltage(adc_reading):
+    return round(3.3*(adc_reading/1023), 1)
+
+def adc_to_temperature(adc_reading):
+    return int((adc_reading - 155)/3.1)
+
+def adc_to_light(adc_reading):
+    light_low_calibration = 230 # ADC reading when finger over LDR
+    light_high_calibration = 780 # ADC reading when torch shining at LDR
+    light_value = ((adc_reading - light_low_calibration)/(light_high_calibration - light_low_calibration))*100
+    if (light_value > 100):
+        light_value = 100
+    elif (light_value < 0):
+        light_value = 0
+    return light_value
