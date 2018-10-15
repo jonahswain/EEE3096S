@@ -15,12 +15,45 @@ import time
 
 
 # Classes
-class TwiddleLock(threading.Thread):
-    """The main Twiddle Lock class"""
-
 
 class Potentiometer(threading.Thread):
     """A potentiometer class"""
+
+    def __init__(self, mcp3008, channel):
+        """Constructor"""
+        self.adc = mcp3008
+        self.channel = channel
+        self.position = 0
+        self.velocity = 0
+        self.time = 0
+        self.prev_readings = []
+        threading.Thread.__init__(self)
+        self.to_close = False
+
+    def run(self):
+        """Thread"""
+        while(not self.to_close):
+            # Do stuff here
+            self.position = self.adc.read_adc(self.channel)
+
+
+            self.prev_readings.append(self.position)
+            if (len(self.prev_readings) > 3):
+                del self.prev_readings[0]
+            time.sleep(0.01)
+
+
+    def close(self):
+        self.to_close = True
+        time.sleep(0.1)
+
+    def __del__(self):
+        self.close()
+
+
+class TwiddleLock(threading.Thread):
+    """The main Twiddle Lock class"""
+
 
 # Main method
 def main():
