@@ -35,7 +35,13 @@ class Potentiometer(threading.Thread):
         while(not self.to_close):
             # Do stuff here
             self.position = self.adc.read_adc(self.channel)
+            if (len(self.prev_readings) > 0):
+                self.velocity = (self.position - self.prev_readings[0])/len(self.prev_readings)
 
+                if (self.velocity < 0.1):
+                    self.time = 0
+                else:
+                    self.time += 0.01
 
             self.prev_readings.append(self.position)
             if (len(self.prev_readings) > 3):
@@ -53,6 +59,43 @@ class Potentiometer(threading.Thread):
 
 class TwiddleLock(threading.Thread):
     """The main Twiddle Lock class"""
+
+    # Configuration (GPIO pin declarations)
+    unlock_pin = 0
+    lock_pin = 0
+    unlock_button_pin = 0
+    lock_button_pin = 0
+    insecure_button_pin = 0
+
+    def __init__(self):
+        """Constructor"""
+
+        # GPIO setup
+        self.unlock_pin = gpiozero.LED(TwiddleLock.unlock_pin)
+        self.lock_pin = gpiozero.LED(TwiddleLock.lock_pin)
+
+        GPIO.setup(TwiddleLock.unlock_button_pin, GPIO.IN, pull_up_down = GPIO.PUD_UP)
+        GPIO.setup(TwiddleLock.lock_button_pin, GPIO.IN, pull_up_down = GPIO.PUD_UP)
+        GPIO.setup(TwiddleLock.insecure_button_pin, GPIO.IN, pull_up_down = GPIO.PUD_UP)
+
+        GPIO.add_event_detect(Prac4.reset_pin, GPIO.FALLING, callback = self.reset_sw, bouncetime = 100)
+
+        # Variable setup
+        self.twiddles = []
+        self.locked = True
+        self.secure = True
+
+
+    def unlock(self):
+        # Unlock the door
+        pass
+
+    def lock(self):
+        # Lock the door
+        pass
+
+    # Interrupt handlers
+    
 
 
 # Main method
