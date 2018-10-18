@@ -108,6 +108,7 @@ class TwiddleLock(threading.Thread):
         self.lock_pin = gpiozero.LED(TwiddleLock.lock_pin)
         self.service_btn = gpiozero.Button(TwiddleLock.service_btn_pin, bounce_time = 0.2, hold_time = 3)
 
+        # Potentiometer setup
         self.adc = Adafruit_MCP3008.MCP3008(mosi = TwiddleLock.spi_mosi_pin, miso = TwiddleLock.spi_miso_pin, clk = TwiddleLock.spi_clk_pin, cs = TwiddleLock.spi_ss_pin)
         self.potentiometer = Potentiometer(self.adc, TwiddleLock.adc_pot_channel)
 

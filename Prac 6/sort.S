@@ -19,9 +19,9 @@ R11 - number to swap
 
 .data @ data section
 numbers:
-.word <numbers here> @ numbers to sort
+.word 5, 3, 6, 34, 2, 6, 9, 1 @ numbers to sort
 num_numbers:
-.word <size of numbers> @ number of numbers to sort
+.word 8 @ number of numbers to sort
 out_str_unsorted:
 .asciz "Unsorted numbers:\n"
 out_str_sorted:
@@ -39,6 +39,7 @@ main:
   LDR R0, =num_numbers @ load address of num_numbers into R0
   LDR R5, [R0] @ load size of numbers array into R5
   LSL R5, R5, #2 @ multiply R5 by 4 (left shift by 2) to get the memory size of the numbers array
+  SUB R5, R5, #4 @ subtract 4 from R5 to get the maximum offset of the numbers array
   MOV R6, #0 @ load 0 into R6
   MOV R7, #0 @ load 0 into R7
   @ print heading for unsorted numbers
@@ -81,6 +82,9 @@ print_sorted_numbers:
   ADD R7, R7, #4 @ increment current offset by one word
   BLT print_sorted_numbers @ branch to print_numbers if R7 < R5 (loop if more numbers to print)
 exit:
+  @ exit procedure
+  mov R0, #0 @ set R0 to 0
+  mov R1, #0 @ set R1 to 0
   pop {ip, lr} @ pop link register from stack
 set_smallest:
   @ set new smallest number
