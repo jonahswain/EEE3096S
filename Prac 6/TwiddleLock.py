@@ -107,40 +107,74 @@ class TwiddleLock(threading.Thread):
         self.unlock_pin = gpiozero.LED(TwiddleLock.unlock_pin)
         self.lock_pin = gpiozero.LED(TwiddleLock.lock_pin)
         self.service_btn = gpiozero.Button(TwiddleLock.service_btn_pin, bounce_time = 0.2, hold_time = 3)
+        self.service_btn.when_deactivated = self.service_btn_pressed
+        self.service_btn.when_held = self.service_btn_held
 
         # Potentiometer setup
         self.adc = Adafruit_MCP3008.MCP3008(mosi = TwiddleLock.spi_mosi_pin, miso = TwiddleLock.spi_miso_pin, clk = TwiddleLock.spi_clk_pin, cs = TwiddleLock.spi_ss_pin)
         self.potentiometer = Potentiometer(self.adc, TwiddleLock.adc_pot_channel)
 
+        # LCD screen setup
+        #self.lcd = RPI_LCD.LCD(RS, EN, D4, D5, D6, D7)
+        self.lcd = None
+
         # Variable setup
         self.log = []
         self.dir = []
+        self.service_btn_held_last = False
         self.locked = True
         self.secure = True
         self.combo_in_progress = False
+        self.to_close = False
 
 
     def run(self):
         """Thread"""
 
+        self.lcd.initialise()
+        self.lcd.write("Twiddle Lock", "")
+
+
+
     def unlock(self):
         # Unlock the door
-        pass
+        self.locked = False
+        self.unlock_pin.blink(2, 0, 1) # Pulse the unlock line for 2s
+        # TODO play a sound
 
     def lock(self):
         # Lock the door
-        pass
+        self.locked = True
+        self.lock_pin.blink(2, 0, 1) # Pulse the lock line for 2s
+        # TODO play a sound
 
     def failed_unlock_attempt(self):
         # Failed unlock attempt (wrong code)
-        pass
+        pass # TODO Play a sound
 
     # Interrupt handlers
     def service_btn_pressed(self):
-        pass
+        if (self.service_btn_held_last):
+            self.service_btn_held_last = False
+        else:
+            self.log = []
+            self.dir = []
+            if (not self.combo_in_progress):
+                self.combo_in_progress = True
+            if (not self.locked):
+                self.lock()
+
 
     def service_btn_held(self):
-        pass
+        self.service_btn_held_last = True
+        self.secure = not self.secure
+
+    def close(self):
+        self.to_close = True
+
+    def __del__(self):
+        self.close()
+        time.sleep(0.2)
 
 
 # Main method
