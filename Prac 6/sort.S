@@ -96,3 +96,4 @@ swap_smallest:
   LDR R10, [R4, R9] @ load the smallest number into R10 (address R4 + offset R9)
   STR R11, [R4, R9] @ store the number to swap in the position of the smallest number
   STR R10, [R4, R6] @ store the smallest number in the position of the number to swap
+  BX lr @ return
