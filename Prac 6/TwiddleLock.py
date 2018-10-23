@@ -19,6 +19,8 @@ import time
 class Combination():
     """A Combination (consisting of directions/durations)"""
 
+    comparison_error_threshhold = 2
+
     def __init__(self, arr_time, arr_direction):
         self.combination = []
         if (len(arr_time) == len(arr_direction) and (len(arr_time) > 0)): # Check for valid equal length time/direction arrays
@@ -28,7 +30,7 @@ class Combination():
             raise RuntimeError("Invalid arguments for Combination")
 
 
-    def __eq__(self, other):
+    def __eq__(self, other): # Secure comparison
         if (not isinstance(other, Combination)):
             return False
 
@@ -36,10 +38,38 @@ class Combination():
             return False
 
         for i in range(len(self.combination)):
-            if ((self.combination[i][0] != other.combination[i][0]) or (self.combination[i][1] != other.combination[i][1])):
+            if ((self.combination[i][0] != other.combination[i][0]) or (abs(self.combination[i][1] - other.combination[i][1]) > Combination.comparison_error_threshhold)):
                 return False
 
         return True
+
+    def comp_unsecure(self, other): # Unsecure comparison
+        if (not isinstance(other, Combination)):
+            return False
+
+        if (len(self.combination) != len(other.combination)):
+            return False
+
+        log_1 = []
+        log_2 = []
+
+        for i in range(len(self.combination)):
+            log_1.append(self.combination[i][1])
+            log_2.append(other.combination[i][1])
+
+        log_1.sort()
+        log_2.sort()
+
+        for i in range(len(self.combination)):
+            if (abs(log_1[i] - log_2[i]) > Combination.comparison_error_threshhold):
+                return False
+
+        return True
+        
+
+    def __str__(self):
+        # To string
+        pass
 
 
 
@@ -87,9 +117,10 @@ class TwiddleLock(threading.Thread):
     """The main Twiddle Lock class"""
 
     # Configuration (GPIO pin declarations)
-    unlock_pin = 0
-    lock_pin = 0
-    service_btn_pin = 0
+    unlock_pin = 16
+    lock_pin = 6
+    service_btn_pin = 26
+    buzzer_pin = 12
 
     spi_mosi_pin = 20
     spi_miso_pin = 19
@@ -109,14 +140,14 @@ class TwiddleLock(threading.Thread):
         self.service_btn = gpiozero.Button(TwiddleLock.service_btn_pin, bounce_time = 0.2, hold_time = 3)
         self.service_btn.when_deactivated = self.service_btn_pressed
         self.service_btn.when_held = self.service_btn_held
+        self.buzzer = gpiozero.Buzzer(TwiddleLock.buzzer_pin)
 
         # Potentiometer setup
         self.adc = Adafruit_MCP3008.MCP3008(mosi = TwiddleLock.spi_mosi_pin, miso = TwiddleLock.spi_miso_pin, clk = TwiddleLock.spi_clk_pin, cs = TwiddleLock.spi_ss_pin)
         self.potentiometer = Potentiometer(self.adc, TwiddleLock.adc_pot_channel)
 
         # LCD screen setup
-        #self.lcd = RPI_LCD.LCD(RS, EN, D4, D5, D6, D7)
-        self.lcd = None
+        self.lcd = RPI_LCD.LCD(18, 17, 27, 22, 23, 24)
 
         # Variable setup
         self.log = []
@@ -127,30 +158,92 @@ class TwiddleLock(threading.Thread):
         self.combo_in_progress = False
         self.to_close = False
 
+        self.correct_combo = Combination([10, 20, 10], [-1, 1, -1])
+
 
     def run(self):
         """Thread"""
 
-        self.lcd.initialise()
+        self.lcd.initialise() # Setup the LCD
         self.lcd.write("Twiddle Lock", "")
 
+        self.lock() # Lock the door
+
+        self.current_direction = 0
+        self.current_time = 0
+        self.prev_direction = 0
+
+        while(True):
+            # Main loop
+            if (self.combo_in_progress):
+                self.prev_direction = self.current_direction
+                if (self.potentiometer.velocity > 0):
+                    self.current_direction = 1
+                elif (self.potentiometer.velocity < 0):
+                    self.current_direction = -1
+                else:
+                    self.current_direction = 0
+
+                if (self.current_direction != self.prev_direction):
+                    if (self.current_direction != 0):
+                        self.log.append(self.current_time)
+                        self.dir.append(self.prev_direction)
+                    self.current_time = 0
+
+                if ((self.current_direction == 0) and (self.current_time > 2000)):
+                    self.combo_in_progress = False
+                    self.combo = Combination(self.log, self.dir)
+                    if (self.secure):
+                        if (self.combo == self.correct_combo):
+                            self.unlock()
+                        else:
+                            self.failed_unlock_attempt()
+                    else:
+                        if (self.combo.compare_unsecure(self.correct_combo)):
+                            self.unlock()
+                        else:
+                            self.failed_unlock_attempt()
+
+                self.current_time += 1
+            else:
+                self.current_time = 0
+                self.current_direction = 0
+
+            time.sleep(0.1)
 
 
     def unlock(self):
         # Unlock the door
         self.locked = False
         self.unlock_pin.blink(2, 0, 1) # Pulse the unlock line for 2s
-        # TODO play a sound
+        self.buzzer.beep(2, 0, 1) # Beep the buzzer for 2 sec
+        if (self.secure):
+            self.lcd.write("Twiddle Lock", "Unlocked")
+        else:
+            self.lcd.write("Unsecure Lock", "Unlocked")
 
     def lock(self):
         # Lock the door
         self.locked = True
         self.lock_pin.blink(2, 0, 1) # Pulse the lock line for 2s
-        # TODO play a sound
+        self.buzzer.beep(0.15, 0.15, 2) # Beep the buzzer twice quickly
+        if (self.secure):
+            self.lcd.write("Twiddle Lock", "Locked")
+        else:
+            self.lcd.write("Unsecure Lock", "Locked")
 
     def failed_unlock_attempt(self):
         # Failed unlock attempt (wrong code)
-        pass # TODO Play a sound
+        self.buzzer.beep(0.5, 0.5, 3) # Beep the buzzer three times
+        if (self.secure):
+            self.lcd.write("Twiddle Lock", "Wrong Combo")
+        else:
+            self.lcd.write("Unsecure Lock", "Wrong Combo")
+        time.sleep(3)
+        if (self.secure):
+            self.lcd.write("Twiddle Lock", "Locked")
+        else:
+            self.lcd.write("Unsecure Lock", "Locked")
 
     # Interrupt handlers
     def service_btn_pressed(self):
@@ -168,6 +261,16 @@ class TwiddleLock(threading.Thread):
     def service_btn_held(self):
         self.service_btn_held_last = True
         self.secure = not self.secure
+        if (self.secure):
+            if (self.locked):
+                self.lcd.write("Twiddle Lock", "Locked")
+            else:
+                self.lcd.write("Twiddle Lock", "Unlocked")
+        else:
+            if (self.locked):
+                self.lcd.write("Unsecure Lock", "Locked")
+            else:
+                self.lcd.write("Unsecure Lock", "Unlocked")
 
     def close(self):
         self.to_close = True
@@ -179,7 +282,8 @@ class TwiddleLock(threading.Thread):
 
 # Main method
 def main():
-    pass
+    twiddle_lock = TwiddleLock()
+    twiddle_lock.start()
 
 
 if (__name__ == "__main__"):
