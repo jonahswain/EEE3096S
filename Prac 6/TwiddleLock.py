@@ -82,7 +82,7 @@ class Potentiometer(threading.Thread):
         self.channel = channel
         self.position = 0
         self.velocity = 0
-        self.prev_readings = []
+        self.prev_reading = 0
         threading.Thread.__init__(self)
         self.to_close = False
 
@@ -91,16 +91,10 @@ class Potentiometer(threading.Thread):
         while(not self.to_close):
             # Do stuff here
             self.position = self.adc.read_adc(self.channel)
-            self.prev_readings.append(self.position)
-            if (len(self.prev_readings) > 4):
-                del self.prev_readings[0]
-            if (len(self.prev_readings) > 0):
+            self.velocity = self.position - self.prev_reading
+            self.prev_reading = self.position
+            if (abs(self.velocity) < 5):
                 self.velocity = 0
-                for i in range(1, len(self.prev_readings)):
-                    self.velocity += self.prev_readings[-i] - self.prev_readings[-i -1]
-                self.velocity /= (len(self.prev_readings) - 1)
-                if (abs(self.velocity) < 0.1):
-                    self.velocity = 0
 
             time.sleep(0.01)
 
@@ -138,13 +132,12 @@ class TwiddleLock(threading.Thread):
         self.unlock_pin = gpiozero.LED(TwiddleLock.unlock_pin)
         self.lock_pin = gpiozero.LED(TwiddleLock.lock_pin)
         self.service_btn = gpiozero.Button(TwiddleLock.service_btn_pin, bounce_time = 0.2, hold_time = 3)
-        self.service_btn.when_deactivated = self.service_btn_pressed
-        self.service_btn.when_held = self.service_btn_held
         self.buzzer = gpiozero.Buzzer(TwiddleLock.buzzer_pin)
 
         # Potentiometer setup
         self.adc = Adafruit_MCP3008.MCP3008(mosi = TwiddleLock.spi_mosi_pin, miso = TwiddleLock.spi_miso_pin, clk = TwiddleLock.spi_clk_pin, cs = TwiddleLock.spi_ss_pin)
         self.potentiometer = Potentiometer(self.adc, TwiddleLock.adc_pot_channel)
+        self.potentiometer.start()
 
         # LCD screen setup
         self.lcd = RPI_LCD.LCD(18, 17, 27, 22, 23, 24)
@@ -173,6 +166,8 @@ class TwiddleLock(threading.Thread):
         self.current_time = 0
         self.prev_direction = 0
 
+        self.service_btn_held_time = 0
+
         while(True):
             # Main loop
             if (self.combo_in_progress):
@@ -185,13 +180,16 @@ class TwiddleLock(threading.Thread):
                     self.current_direction = 0
 
                 if (self.current_direction != self.prev_direction):
-                    if (self.current_direction != 0):
-                        self.log.append(self.current_time)
-                        self.dir.append(self.prev_direction)
+                    self.log.append(self.current_time)
+                    self.dir.append(self.prev_direction)
+                    print("Changed direction:", self.current_direction)
                     self.current_time = 0
 
-                if ((self.current_direction == 0) and (self.current_time > 2000)):
+                if ((self.current_direction == 0) and (self.current_time > 10)):
                     self.combo_in_progress = False
+                    print("Combination complete:")
+                    print(self.log)
+                    print(self.dir)
                     self.combo = Combination(self.log, self.dir)
                     if (self.secure):
                         if (self.combo == self.correct_combo):
@@ -209,7 +207,16 @@ class TwiddleLock(threading.Thread):
                 self.current_time = 0
                 self.current_direction = 0
 
-            time.sleep(0.1)
+            if (self.service_btn.is_pressed):
+                self.service_btn_held_time += 0.1
+            else:
+                if (self.service_btn_held_time > 3):
+                    self.service_btn_held()
+                elif (self.service_btn_held_time > 0.3):
+                    self.service_btn_pressed()
+                self.service_btn_held_time = 0
+
+            time.sleep(0.2)
 
 
     def unlock(self):
@@ -247,19 +254,19 @@ class TwiddleLock(threading.Thread):
 
     # Interrupt handlers
     def service_btn_pressed(self):
-        if (self.service_btn_held_last):
-            self.service_btn_held_last = False
-        else:
-            self.log = []
-            self.dir = []
-            if (not self.combo_in_progress):
-                self.combo_in_progress = True
-            if (not self.locked):
-                self.lock()
+        self.log = []
+        self.dir = []
+        if (not self.combo_in_progress):
+            self.combo_in_progress = True
+            if (self.secure):
+                self.lcd.write("Twiddle Lock", "Enter combo")
+            else:
+                self.lcd.write("Unsecure Lock", "Enter combo")
+        if (not self.locked):
+            self.lock()
 
 
     def service_btn_held(self):
-        self.service_btn_held_last = True
         self.secure = not self.secure
         if (self.secure):
             if (self.locked):
