@@ -19,9 +19,9 @@ R11 - number to swap
 
 .data @ data section
 numbers:
-.word 5, 3, 6, 34, 2, 6, 9, 1 @ numbers to sort
+.word 5, 3, 6, 34, 2 @ numbers to sort
 num_numbers:
-.word 8 @ number of numbers to sort
+.word 5 @ number of numbers to sort
 out_str_unsorted:
 .asciz "Unsorted numbers:\n"
 out_str_sorted:
@@ -39,19 +39,21 @@ main:
   LDR R0, =num_numbers @ load address of num_numbers into R0
   LDR R5, [R0] @ load size of numbers array into R5
   LSL R5, R5, #2 @ multiply R5 by 4 (left shift by 2) to get the memory size of the numbers array
-  SUB R5, R5, #4 @ subtract 4 from R5 to get the maximum offset of the numbers array
+  SUB R5, R5, #4 @ subtract 4 from R5 to get maximum offset
   MOV R6, #0 @ load 0 into R6
   MOV R7, #0 @ load 0 into R7
   @ print heading for unsorted numbers
   LDR R0, =out_str_unsorted @ load string into R0
   BL printf @ branch to printf
 print_numbers:
-  MOV R0, =out_str_number @ load output string address into R0
+  LDR R0, =out_str_number @ load output string address into R0
   LDR R1, [R4, R7] @ load current number from numbers into R1 (address R4 + offset R7)
   BL printf @ branch to printf
   CMP R7, R5 @ compare current offset to size of numbers array
   ADD R7, R7, #4 @ increment current offset by one word
   BLT print_numbers @ branch to print_numbers if R7 < R5 (loop if more numbers to print)
+  @B exit @ DEBUG EXIT
+pre_outer:
   MOV R7, #0 @ load 0 into R7
 outer_loop:
   MOV R10, #255 @ reset the current smallest number to 255
@@ -60,7 +62,7 @@ outer_loop:
 inner_loop:
   LDR R8, [R4, R7] @ load current number to compare into R8
   CMP R8, R10 @ compare current number and smallest number
-  BLT set_smallest @ branch to set smallest number
+  BLLT set_smallest @ branch to set smallest number
 continue_inner:
   CMP R7, R5 @ compare current offset to size of numbers array
   ADD R7, R7, #4 @ increment current offset by one word
@@ -75,7 +77,7 @@ print_sorted_header:
   BL printf @ branch to printf
   MOV R7, #0 @ load 0 into R7
 print_sorted_numbers:
-  MOV R0, =out_str_number @ load output string address into R0
+  LDR R0, =out_str_number @ load output string address into R0
   LDR R1, [R4, R7] @ load current number from numbers into R1 (address R4 + offset R7)
   BL printf @ branch to printf
   CMP R7, R5 @ compare current offset to size of numbers array

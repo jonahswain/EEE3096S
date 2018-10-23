@@ -19,7 +19,7 @@ import time
 class Combination():
     """A Combination (consisting of directions/durations)"""
 
-    comparison_error_threshhold = 2
+    comparison_error_threshhold = 4
 
     def __init__(self, arr_time, arr_direction):
         self.combination = []
@@ -69,7 +69,14 @@ class Combination():
 
     def __str__(self):
         # To string
-        pass
+        outstr = ""
+        for i in range(len(self.combination)):
+            if (self.combination[i][0] > 0):
+                outstr = outstr + "R"
+            else:
+                outstr = outstr + "L"
+            outstr = outstr + str(self.combination[i][1])
+        return outstr
 
 
 
@@ -96,7 +103,7 @@ class Potentiometer(threading.Thread):
             if (abs(self.velocity) < 5):
                 self.velocity = 0
 
-            time.sleep(0.01)
+            time.sleep(0.05)
 
 
     def close(self):
@@ -165,6 +172,8 @@ class TwiddleLock(threading.Thread):
         self.current_direction = 0
         self.current_time = 0
         self.prev_direction = 0
+        self.stationary = False
+        self.stationary_time = 0
 
         self.service_btn_held_time = 0
 
@@ -174,35 +183,44 @@ class TwiddleLock(threading.Thread):
                 self.prev_direction = self.current_direction
                 if (self.potentiometer.velocity > 0):
                     self.current_direction = 1
+                    self.stationary = False
                 elif (self.potentiometer.velocity < 0):
                     self.current_direction = -1
+                    self.stationary = False
                 else:
+                    self.stationary = True
+
+                if (self.stationary_time > 10):
                     self.current_direction = 0
 
                 if (self.current_direction != self.prev_direction):
-                    self.log.append(self.current_time)
-                    self.dir.append(self.prev_direction)
-                    print("Changed direction:", self.current_direction)
+                    if (self.prev_direction != 0):
+                        if (self.current_time > 2):
+                            self.log.append(self.current_time)
+                            self.dir.append(self.prev_direction)
                     self.current_time = 0
 
-                if ((self.current_direction == 0) and (self.current_time > 10)):
+                if (self.stationary_time > 20):
                     self.combo_in_progress = False
-                    print("Combination complete:")
-                    print(self.log)
-                    print(self.dir)
-                    self.combo = Combination(self.log, self.dir)
-                    if (self.secure):
-                        if (self.combo == self.correct_combo):
-                            self.unlock()
+                    if (len(self.log) > 0):
+                        self.combo = Combination(self.log, self.dir)
+                        print("Combination entered: ", self.combo)
+                        if (self.secure):
+                            if (self.combo == self.correct_combo):
+                                self.unlock()
+                            else:
+                                self.failed_unlock_attempt()
                         else:
-                            self.failed_unlock_attempt()
-                    else:
-                        if (self.combo.compare_unsecure(self.correct_combo)):
-                            self.unlock()
-                        else:
-                            self.failed_unlock_attempt()
+                            if (self.combo.comp_unsecure(self.correct_combo)):
+                                self.unlock()
+                            else:
+                                self.failed_unlock_attempt()
 
-                self.current_time += 1
+                if (not self.stationary):
+                    self.current_time += 1
+                    self.stationary_time = 0
+                else:
+                    self.stationary_time += 1
             else:
                 self.current_time = 0
                 self.current_direction = 0
@@ -216,7 +234,7 @@ class TwiddleLock(threading.Thread):
                     self.service_btn_pressed()
                 self.service_btn_held_time = 0
 
-            time.sleep(0.2)
+            time.sleep(0.1)
 
 
     def unlock(self):
@@ -258,6 +276,11 @@ class TwiddleLock(threading.Thread):
         self.dir = []
         if (not self.combo_in_progress):
             self.combo_in_progress = True
+            self.current_direction = 0
+            self.prev_direction = 0
+            self.current_time = 0
+            self.stationary = False
+            self.stationary_time = 0
             if (self.secure):
                 self.lcd.write("Twiddle Lock", "Enter combo")
             else:
